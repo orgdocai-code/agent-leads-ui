@@ -25,7 +25,7 @@ interface SkillsData {
 }
 
 const API_BASE = 'https://agent-leads-production.up.railway.app';
-const DEMO_KEY = 'demo';
+const DEMO_KEY = 'demo'; // Free tier API key for demo
 
 export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -65,13 +65,16 @@ export default function Home() {
     setLoading(true);
     const url = new URL(`${API_BASE}/opportunities`);
     url.searchParams.set('limit', '50');
-    url.searchParams.set('x-api-key', DEMO_KEY);
     
     if (selectedSkills.length > 0) {
       url.searchParams.set('skills', selectedSkills.join(','));
     }
 
-    fetch(url.toString())
+    fetch(url.toString(), {
+      headers: {
+        'x-api-key': DEMO_KEY
+      }
+    })
       .then(res => res.json())
       .then(data => {
         if (data.data) {
