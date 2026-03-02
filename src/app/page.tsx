@@ -27,42 +27,63 @@ interface SkillsData {
 const API_BASE = 'https://agent-leads-production.up.railway.app';
 const DEMO_KEY = 'demo'; // Free tier API key for demo
 
+// Email validation regex
+const isValidEmail = (email: string) => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
 export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [skills, setSkills] = useState<{ name: string; count: number }[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadingSkills, setLoadingSkills] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [savedJobs, setSavedJobs] = useState<number[]>([]);
   const [showSaved, setShowSaved] = useState(false);
   const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [emailSubmitted, setEmailSubmitted] = useState(false);
 
   // Load saved jobs from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('savedJobs');
-    if (saved) {
-      setSavedJobs(JSON.parse(saved));
-    }
-    const emailSub = localStorage.getItem('emailSubmitted');
-    if (emailSub) {
-      setEmailSubmitted(true);
+    try {
+      const saved = localStorage.getItem('savedJobs');
+      if (saved) {
+        setSavedJobs(JSON.parse(saved));
+      }
+      const emailSub = localStorage.getItem('emailSubmitted');
+      if (emailSub) {
+        setEmailSubmitted(true);
+      }
+    } catch (e) {
+      console.error('Error loading from localStorage:', e);
     }
   }, []);
 
   // Fetch skills
   useEffect(() => {
-    fetch(`${API_BASE}/skills`)
+    setLoadingSkills(true);
+    fetch(`${API_BASE}/skills`, {
+      headers: { 'x-api-key': DEMO_KEY }
+    })
       .then(res => res.json())
       .then(data => {
         if (data.skills) setSkills(data.skills);
+        setLoadingSkills(false);
       })
-      .catch(console.error);
+      .catch(err => {
+        console.error('Error fetching skills:', err);
+        setLoadingSkills(false);
+      });
   }, []);
 
   // Fetch jobs
   useEffect(() => {
     setLoading(true);
+    setError(null);
+    
     const url = new URL(`${API_BASE}/opportunities`);
     url.searchParams.set('limit', '50');
     
@@ -71,44 +92,72 @@ export default function Home() {
     }
 
     fetch(url.toString(), {
-      headers: {
-        'x-api-key': DEMO_KEY
-      }
+      headers: { 'x-api-key': DEMO_KEY }
     })
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`API error: ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
         if (data.data) {
           setJobs(data.data);
+        } else {
+          setJobs([]);
         }
         setLoading(false);
       })
       .catch(err => {
-        console.error(err);
+        console.error('Error fetching jobs:', err);
+        setError('Failed to load jobs. Please try again.');
         setLoading(false);
       });
   }, [selectedSkills]);
 
-  // Handle email signup
+  // Handle email signup with validation
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim()) {
-      // Store locally for now (in production, send to API)
-      localStorage.setItem('subscriberEmail', email);
+    setEmailError('');
+    
+    if (!email.trim()) {
+      setEmailError('Please enter an email address');
+      return;
+    }
+    
+    if (!isValidEmail(email)) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+    
+    // Store locally for now (in production, send to API/database)
+    try {
+      // Get existing subscribers
+      const existing = localStorage.getItem('subscriberEmails') || '[]';
+      const emails = JSON.parse(existing);
+      
+      // Add new email if not already present
+      if (!emails.includes(email)) {
+        emails.push(email);
+        localStorage.setItem('subscriberEmails', JSON.stringify(emails));
+      }
+      
       localStorage.setItem('emailSubmitted', 'true');
       setEmailSubmitted(true);
+    } catch (err) {
+      console.error('Error saving email:', err);
+      setEmailError('Failed to save. Please try again.');
     }
   };
 
-  // Search jobs
   const handleSearch = () => {
     if (!searchQuery.trim()) {
-      setSelectedSkills([]);
       return;
     }
     // Filter client-side for search
     const filtered = jobs.filter(job => 
       job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      (job.description && job.description.toLowerCase().includes(searchQuery.toLowerCase()))
     );
     setJobs(filtered);
   };
@@ -122,11 +171,15 @@ export default function Home() {
   };
 
   const saveJob = (jobId: number) => {
-    const newSaved = savedJobs.includes(jobId)
-      ? savedJobs.filter(id => id !== jobId)
-      : [...savedJobs, jobId];
-    setSavedJobs(newSaved);
-    localStorage.setItem('savedJobs', JSON.stringify(newSaved));
+    try {
+      const newSaved = savedJobs.includes(jobId)
+        ? savedJobs.filter(id => id !== jobId)
+        : [...savedJobs, jobId];
+      setSavedJobs(newSaved);
+      localStorage.setItem('savedJobs', JSON.stringify(newSaved));
+    } catch (err) {
+      console.error('Error saving job:', err);
+    }
   };
 
   const filteredJobs = showSaved 
@@ -141,22 +194,27 @@ export default function Home() {
           <h1 className="text-4xl font-bold mb-2">🤖 AgentLeads</h1>
           <p className="text-indigo-100 text-lg">AI Agent Job Opportunities — Find your next gig</p>
           
-          {/* Email Signup */}
+          {/* Email Signup with validation */}
           {!emailSubmitted && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              <input
-                type="email"
-                placeholder="Enter email for job alerts"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="px-4 py-2 rounded-lg text-gray-800 w-64"
-              />
-              <button
-                onClick={handleEmailSubmit}
-                className="px-6 py-2 bg-yellow-400 text-indigo-900 font-semibold rounded-lg hover:bg-yellow-300"
-              >
-                Get Alerts 🔔
-              </button>
+            <div className="mt-4">
+              <form onSubmit={handleEmailSubmit} className="flex flex-wrap gap-2">
+                <input
+                  type="email"
+                  placeholder="Enter email for job alerts"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); setEmailError(''); }}
+                  className={`px-4 py-2 rounded-lg text-gray-800 w-64 ${emailError ? 'border-2 border-red-500' : ''}`}
+                />
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-yellow-400 text-indigo-900 font-semibold rounded-lg hover:bg-yellow-300"
+                >
+                  Get Alerts 🔔
+                </button>
+              </form>
+              {emailError && (
+                <p className="mt-2 text-red-300 text-sm">{emailError}</p>
+              )}
             </div>
           )}
           {emailSubmitted && (
@@ -170,20 +228,25 @@ export default function Home() {
         <aside className="w-64 flex-shrink-0">
           <div className="bg-white rounded-lg shadow p-4 sticky top-4">
             <h2 className="font-semibold text-gray-800 mb-3">🔍 Skills</h2>
-            <div className="max-h-96 overflow-y-auto space-y-1">
-              {skills.slice(0, 25).map(skill => (
-                <label key={skill.name} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                  <input
-                    type="checkbox"
-                    checked={selectedSkills.includes(skill.name)}
-                    onChange={() => toggleSkill(skill.name)}
-                    className="rounded text-indigo-600"
-                  />
-                  <span className="text-sm text-gray-700">{skill.name}</span>
-                  <span className="text-xs text-gray-400 ml-auto">{skill.count}</span>
-                </label>
-              ))}
-            </div>
+            
+            {loadingSkills ? (
+              <p className="text-gray-500 text-sm">Loading skills...</p>
+            ) : (
+              <div className="max-h-96 overflow-y-auto space-y-1">
+                {skills.slice(0, 25).map(skill => (
+                  <label key={skill.name} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                    <input
+                      type="checkbox"
+                      checked={selectedSkills.includes(skill.name)}
+                      onChange={() => toggleSkill(skill.name)}
+                      className="rounded text-indigo-600"
+                    />
+                    <span className="text-sm text-gray-700">{skill.name}</span>
+                    <span className="text-xs text-gray-400 ml-auto">{skill.count}</span>
+                  </label>
+                ))}
+              </div>
+            )}
             
             {selectedSkills.length > 0 && (
               <button
@@ -198,6 +261,19 @@ export default function Home() {
 
         {/* Main Content */}
         <main className="flex-1">
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <p className="text-red-700">{error}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+              >
+                Click to retry
+              </button>
+            </div>
+          )}
+
           {/* Search Bar */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
             <div className="flex gap-2">
@@ -241,7 +317,19 @@ export default function Home() {
             </div>
           ) : filteredJobs.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg shadow">
-              <p className="text-gray-500">No jobs found</p>
+              <p className="text-gray-500">
+                {selectedSkills.length > 0 
+                  ? `No jobs found for skills: ${selectedSkills.join(', ')}`
+                  : 'No jobs found'}
+              </p>
+              {selectedSkills.length > 0 && (
+                <button
+                  onClick={() => setSelectedSkills([])}
+                  className="mt-2 text-indigo-600 hover:text-indigo-800"
+                >
+                  Clear filters
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
@@ -284,6 +372,7 @@ export default function Home() {
                       <button
                         onClick={() => saveJob(job.id)}
                         className={`p-2 rounded ${savedJobs.includes(job.id) ? 'text-yellow-500' : 'text-gray-400 hover:text-yellow-500'}`}
+                        title={savedJobs.includes(job.id) ? 'Remove from saved' : 'Save job'}
                       >
                         ⭐
                       </button>
