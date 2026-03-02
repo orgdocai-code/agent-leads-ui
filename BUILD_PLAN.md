@@ -1,101 +1,76 @@
-# AgentLeads UI Build Plan
+# AgentLeads - Build & Status
 
-## Overview
-Build a job board UI for AgentLeads with skill-based matching, starting with free tier.
+## Current Status (2026-03-03)
 
-## Phases
+### ✅ Working
+- API running on Railway: https://agent-leads-production.up.railway.app
+- UI running on Vercel: https://agent-leads-ui.vercel.app
+- Jobs endpoint: Returns 351 jobs with skills
+- Skills endpoint: Returns 15 skills (ai, github, python, etc.)
+- CORS enabled for frontend
+- Email signup form (localStorage only - needs backend)
+- Skills filtering works
+- Rate limiting works (10 req/key/day, 20 req/IP/day)
+
+### Issues
+- Email signups stored in browser localStorage only (no backend) - need to check with user
+- No email sending (needs Resend API)
+- Skills extraction limited (only 15 skills detected from 351 jobs)
 
 ---
 
-## Phase 1: Setup & Backup (COMPLETED ✅)
-- [x] Backup existing AgentLeads repo → `agent-leads-backup/`
-- [x] Clone to local for development → `agent-leads-dev/`
-- [x] Add API key system with 10 req/day limit ✅
-- [x] Add skill extraction to jobs ✅
-- [x] Test locally ✅
-- [x] Deploy to staging (GitHub) ✅
+## Completed Phases
 
-## Phase 2: UI Development (DONE - Needs Deployment)
-- [x] Create Next.js project ✅
-- [x] Build job listing page ✅
-- [x] Add skill filters (sidebar) ✅
-- [x] Add search functionality ✅
-- [x] Add "Save Jobs" (localStorage) ✅
-- [ ] Deploy to Vercel (manual - needs GitHub repo)
+### Phase 1: Setup & Backup ✅
+- [x] Backup existing AgentLeads repo
+- [x] Add API key system with rate limiting
+- [x] Add skill extraction
+- [x] Deploy to Railway
 
-## Phase 2: UI Development
-- [ ] Build Next.js job board UI
-- [ ] Add skill filters
-- [ ] Add search functionality
-- [ ] Add "Save Jobs" (localStorage)
-- [ ] Deploy to Vercel (free tier)
+### Phase 2: UI Development ✅
+- [x] Create Next.js project
+- [x] Build job listing page
+- [x] Add skill filters
+- [x] Add search functionality
+- [x] Add "Save Jobs" (localStorage)
+- [x] Add email signup form
+- [x] Deploy to Vercel
 
-## Phase 3: User Features
-- [ ] Email subscription (free digest)
-- [ ] User profiles with skills
-- [ ] AI matching (basic)
+---
 
-## Phase 4: Monetization
-- [ ] Add Stripe/payment integration
+## Phase 3: User Features (PENDING)
+- [ ] Create email subscription API endpoint
+- [ ] Store emails in database (not localStorage)
+- [ ] Resend integration for email alerts
+- [ ] User profiles with saved skills
+- [ ] AI job matching (upload resume → get matched)
+
+## Phase 4: Monetization (PENDING)
+- [ ] Stripe integration for payments
 - [ ] Pro tier ($9/mo): Unlimited + AI matching
 - [ ] Paid apply ($2-5/apply)
 
-## Phase 5: Launch
+## Phase 5: Launch (PENDING)
 - [ ] Post on Hacker News
-- [ ] Post on Reddit (r/LocalLLaMA, r/RemoteJobs)
+- [ ] Post on Reddit
 - [ ] Twitter/X announcement
 - [ ] Set up analytics
 
 ---
 
-## Technical Details
+## Next Steps
 
-### API Key System
-- Header: `x-api-key`
-- Free tier: 10 requests/day
-- Track usage by key in database
-- Reset daily at midnight UTC
-
-### Skill Extraction
-Extract from job title/description:
-- Languages: Python, JavaScript, TypeScript, Go, Rust, etc.
-- Frameworks: React, Vue, Next.js, LangChain, etc.
-- Cloud: AWS, GCP, Azure, Vercel
-- Databases: PostgreSQL, MongoDB, Redis
-- AI: OpenAI, Claude, Llama, GPT, etc.
-
-### Skills Database
-```javascript
-const SKILLS = [
-  // Languages
-  'python', 'javascript', 'typescript', 'go', 'rust', 'java', 'c++',
-  // Frontend
-  'react', 'vue', 'angular', 'next.js', 'tailwind', 'css', 'html',
-  // Backend
-  'node.js', 'express', 'fastapi', 'django', 'flask',
-  // AI/ML
-  'openai', 'claude', 'langchain', 'llamaindex', 'tensorflow', 'pytorch',
-  // Cloud
-  'aws', 'gcp', 'azure', 'vercel', 'railway', 'docker', 'kubernetes',
-  // Databases
-  'postgresql', 'mysql', 'mongodb', 'redis', 'supabase',
-  // Tools
-  'git', 'github', 'gitlab', 'vscode', 'cursor'
-]
-```
-
-### Free Tier Limits
-- 10 requests per API key per day
-- No way to bypass (server-side only)
-- Hard limit, no exceptions
+1. **You tomorrow:** Sign up for Resend, get API key
+2. **After that:** I'll add email subscription backend + cron for weekly digests
+3. **Then:** Launch on social media
 
 ---
 
-## Cost Tracking
+## Cost
 
 | Item | Free Tier | Cost |
 |------|-----------|------|
-| Railway | $5-10/mo | Currently running |
+5-10/mo| Railway | $ | Currently running |
 | Vercel | Unlimited | $0 |
-| Domain | ~$12/yr | TBD |
+| Resend | 3,000/mo free | $0 (when added) |
 | Total | | $5-10/mo |
