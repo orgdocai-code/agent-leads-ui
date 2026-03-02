@@ -35,12 +35,18 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [savedJobs, setSavedJobs] = useState<number[]>([]);
   const [showSaved, setShowSaved] = useState(false);
+  const [email, setEmail] = useState('');
+  const [emailSubmitted, setEmailSubmitted] = useState(false);
 
   // Load saved jobs from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('savedJobs');
     if (saved) {
       setSavedJobs(JSON.parse(saved));
+    }
+    const emailSub = localStorage.getItem('emailSubmitted');
+    if (emailSub) {
+      setEmailSubmitted(true);
     }
   }, []);
 
@@ -78,6 +84,17 @@ export default function Home() {
         setLoading(false);
       });
   }, [selectedSkills]);
+
+  // Handle email signup
+  const handleEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email.trim()) {
+      // Store locally for now (in production, send to API)
+      localStorage.setItem('subscriberEmail', email);
+      localStorage.setItem('emailSubmitted', 'true');
+      setEmailSubmitted(true);
+    }
+  };
 
   // Search jobs
   const handleSearch = () => {
@@ -120,6 +137,28 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4">
           <h1 className="text-4xl font-bold mb-2">🤖 AgentLeads</h1>
           <p className="text-indigo-100 text-lg">AI Agent Job Opportunities — Find your next gig</p>
+          
+          {/* Email Signup */}
+          {!emailSubmitted && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <input
+                type="email"
+                placeholder="Enter email for job alerts"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className="px-4 py-2 rounded-lg text-gray-800 w-64"
+              />
+              <button
+                onClick={handleEmailSubmit}
+                className="px-6 py-2 bg-yellow-400 text-indigo-900 font-semibold rounded-lg hover:bg-yellow-300"
+              >
+                Get Alerts 🔔
+              </button>
+            </div>
+          )}
+          {emailSubmitted && (
+            <p className="mt-4 text-green-300">✓ You're signed up for job alerts!</p>
+          )}
         </div>
       </header>
 
