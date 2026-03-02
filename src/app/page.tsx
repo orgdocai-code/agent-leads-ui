@@ -219,7 +219,11 @@ export default function Home() {
                         <p className="text-sm text-gray-400 mt-1 line-clamp-2">{job.description || 'No description'}</p>
                         {job.skills?.length > 0 && <div className="flex flex-wrap gap-1 mt-2">{job.skills.slice(0, 4).map(s => <span key={s} className="px-2 py-0.5 bg-purple-500/20 text-purple-300 text-xs rounded">{s}</span>)}{job.skills.length > 4 && <span className="text-xs text-gray-500">+{job.skills.length - 4}</span>}</div>}
                         <div className="flex items-center gap-4 mt-3 text-sm">
-                          <span className="text-green-400 font-semibold">💰 {job.payout} {job.payoutCurrency}</span>
+                          {job.payout && parseFloat(job.payout) > 0 ? (
+                            <span className="text-green-400 font-semibold">💰 {job.payout} {job.payoutCurrency}</span>
+                          ) : (
+                            <span className="text-gray-500 font-semibold">💰 Competitive</span>
+                          )}
                           <span className="text-gray-500">{new Date(job.scrapedAt).toLocaleDateString()}</span>
                         </div>
                       </div>
