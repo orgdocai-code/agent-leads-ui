@@ -23,6 +23,7 @@ const DEMO_KEY = 'demo';
 const JOBS_PER_PAGE = 20;
 
 const SOURCES = ['rentahuman', 'moltbook', 'clawlancer', 'x402bazaar', 'owockibot'];
+const EXPIRED_SOURCES = ['rentahuman', 'moltbook']; // Sources with expired links
 
 export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -41,6 +42,7 @@ export default function Home() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [hideExpired, setHideExpired] = useState(true); // Default to hiding expired sources
 
   // Load saved jobs
   useEffect(() => {
@@ -87,6 +89,9 @@ export default function Home() {
     // Filter by source
     if (selectedSources.length > 0) {
       result = result.filter(j => selectedSources.includes(j.source));
+    } else if (hideExpired) {
+      // By default, hide sources with expired links
+      result = result.filter(j => !EXPIRED_SOURCES.includes(j.source));
     }
     
     // Filter by search (title)
@@ -254,7 +259,7 @@ export default function Home() {
             <div className="flex flex-wrap gap-2 items-center justify-between">
               <div className="flex gap-2 flex-wrap">
                 <button onClick={clearFilters} className={`px-3 py-1 rounded-full text-sm ${!showSaved && selectedSources.length === 0 && !searchQuery && selectedSkills.length === 0 ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
-                  All ({showSaved ? savedJobs.length : (selectedSources.length === 0 && !searchQuery && selectedSkills.length === 0 ? totalCount : filteredJobs.length)})
+                  All ({showSaved ? savedJobs.length : (selectedSources.length === 0 && !searchQuery && selectedSkills.length === 0 ? (hideExpired ? filteredJobs.length : totalCount) : filteredJobs.length)})
                 </button>
                 <button onClick={() => { setShowSaved(true); setPage(1); }} className={`px-3 py-1 rounded-full text-sm ${showSaved ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'}`}>⭐ Saved ({savedJobs.length})</button>
               </div>
@@ -269,6 +274,11 @@ export default function Home() {
                 <option value="payout-low">Lowest Pay</option>
                 <option value="alpha">A-Z</option>
               </select>
+              
+              <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+                <input type="checkbox" checked={hideExpired} onChange={e => { setHideExpired(e.target.checked); setPage(1); }} className="rounded text-purple-500 bg-gray-700 border-gray-600" />
+                Hide expired
+              </label>
             </div>
           </div>
 
