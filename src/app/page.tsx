@@ -279,6 +279,10 @@ export default function Home() {
                 <input type="checkbox" checked={hideExpired} onChange={e => { setHideExpired(e.target.checked); setPage(1); }} className="rounded text-purple-500 bg-gray-700 border-gray-600" />
                 Hide expired
               </label>
+              
+              <button onClick={() => window.location.reload()} className="px-3 py-1 bg-gray-700 rounded-full text-sm hover:bg-gray-600 flex items-center gap-1">
+                🔄 Refresh
+              </button>
             </div>
           </div>
 
