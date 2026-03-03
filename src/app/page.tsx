@@ -22,8 +22,6 @@ const API_BASE = 'https://agent-leads-production.up.railway.app';
 const DEMO_KEY = 'demo';
 const JOBS_PER_PAGE = 20;
 
-const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
 export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [displayedJobs, setDisplayedJobs] = useState<Job[]>([]);
@@ -35,19 +33,14 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [savedJobs, setSavedJobs] = useState<number[]>([]);
   const [showSaved, setShowSaved] = useState(false);
-  const [email, setEmail] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [emailSubmitted, setEmailSubmitted] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [subscribeLoading, setSubscribeLoading] = useState(false);
 
   // Load saved jobs
   useEffect(() => {
     try {
       const saved = localStorage.getItem('savedJobs');
       if (saved) setSavedJobs(JSON.parse(saved));
-      if (localStorage.getItem('emailSubmitted')) setEmailSubmitted(true);
     } catch (e) { console.error(e); }
   }, []);
 
@@ -92,31 +85,6 @@ export default function Home() {
     setHasMore(end < jobs.length);
   }, [page, jobs]);
 
-  // Subscribe
-  const handleSubscribe = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setEmailError('');
-    if (!email.trim()) { setEmailError('Enter email'); return; }
-    if (!isValidEmail(email)) { setEmailError('Invalid email'); return; }
-    
-    setSubscribeLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/subscribe`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, skills: selectedSkills.join(',') })
-      });
-      const data = await res.json();
-      if (data.success) {
-        localStorage.setItem('emailSubmitted', 'true');
-        setEmailSubmitted(true);
-      } else {
-        setEmailError(data.error || 'Failed');
-      }
-    } catch { setEmailError('Network error'); }
-    setSubscribeLoading(false);
-  };
-
   const toggleSkill = (skill: string) => {
     setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
   };
@@ -141,24 +109,7 @@ export default function Home() {
               </h1>
               <p className="text-indigo-100 mt-1">AI Agent Job Opportunities</p>
             </div>
-            
-            {!emailSubmitted && (
-              <form onSubmit={handleSubscribe} className="flex items-center gap-2">
-                <input
-                  type="email"
-                  placeholder="Get job alerts..."
-                  value={email}
-                  onChange={e => { setEmail(e.target.value); setEmailError(''); }}
-                  className="px-4 py-2 rounded-lg text-gray-900 w-48 sm:w-64 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                />
-                <button type="submit" disabled={subscribeLoading} className="px-4 py-2 bg-yellow-400 text-indigo-900 font-semibold rounded-lg hover:bg-yellow-300 disabled:opacity-50">
-                  {subscribeLoading ? '...' : '🔔'}
-                </button>
-              </form>
-            )}
-            {emailSubmitted && <span className="text-green-300 text-sm">✓ Alerts on</span>}
           </div>
-          {emailError && <p className="text-red-300 text-sm mt-2">{emailError}</p>}
         </div>
       </header>
 
