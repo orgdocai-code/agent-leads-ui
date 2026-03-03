@@ -31,7 +31,7 @@ export default function Home() {
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'date' | 'payout-high' | 'payout-low'>('date');
+  const [sortBy, setSortBy] = useState<'date' | 'payout-high' | 'payout-low' | 'alpha'>('date');
   const [loading, setLoading] = useState(true);
   const [loadingSkills, setLoadingSkills] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +45,6 @@ export default function Home() {
     try {
       const saved = localStorage.getItem('savedJobs');
       if (saved) setSavedJobs(JSON.parse(saved));
-      // Clear old localStorage keys
       localStorage.removeItem('emailSubmitted');
     } catch (e) { console.error(e); }
   }, []);
@@ -106,6 +105,8 @@ export default function Home() {
         const bVal = parseFloat(b.payout) || 0;
         return aVal - bVal;
       });
+    } else if (sortBy === 'alpha') {
+      result.sort((a, b) => a.title.localeCompare(b.title));
     } else {
       // Sort by date (newest first)
       result.sort((a, b) => new Date(b.scrapedAt).getTime() - new Date(a.scrapedAt).getTime());
@@ -114,21 +115,23 @@ export default function Home() {
     return result;
   }, [jobs, selectedSources, searchQuery, sortBy]);
 
-  // Update displayed jobs when filters change
-  useEffect(() => {
-    setDisplayedJobs(filteredJobs.slice(0, JOBS_PER_PAGE));
-    setHasMore(filteredJobs.length > JOBS_PER_PAGE);
-  }, [filteredJobs]);
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredJobs.length / JOBS_PER_PAGE);
 
-  // Load more jobs
-  const loadMore = useCallback(() => {
-    const nextPage = page + 1;
-    const start = (nextPage - 1) * JOBS_PER_PAGE;
+  // Update displayed jobs when filters or page changes
+  useEffect(() => {
+    const start = (page - 1) * JOBS_PER_PAGE;
     const end = start + JOBS_PER_PAGE;
-    setDisplayedJobs(filteredJobs.slice(0, end));
-    setPage(nextPage);
+    setDisplayedJobs(filteredJobs.slice(start, end));
     setHasMore(end < filteredJobs.length);
-  }, [page, filteredJobs]);
+  }, [filteredJobs, page]);
+
+  const goToPage = (p: number) => {
+    if (p >= 1 && p <= totalPages) {
+      setPage(p);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const toggleSkill = (skill: string) => {
     setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
@@ -146,7 +149,37 @@ export default function Home() {
     localStorage.setItem('savedJobs', JSON.stringify(newSaved));
   };
 
-  const displayed = showSaved ? displayedJobs.filter(j => savedJobs.includes(j.id)) : displayedJobs;
+  const handleSearch = () => {
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setSelectedSources([]);
+    setSearchQuery('');
+    setSelectedSkills([]);
+    setPage(1);
+  };
+
+  const displayed = showSaved ? filteredJobs.filter(j => savedJobs.includes(j.id)) : displayedJobs;
+
+  // Generate page numbers to show
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const total = Math.ceil((showSaved ? savedJobs.length : filteredJobs.length) / JOBS_PER_PAGE);
+    
+    if (total <= 7) {
+      for (let i = 1; i <= total; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (page > 3) pages.push('...');
+      for (let i = Math.max(2, page - 1); i <= Math.min(total - 1, page + 1); i++) {
+        pages.push(i);
+      }
+      if (page < total - 2) pages.push('...');
+      pages.push(total);
+    }
+    return pages;
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -181,7 +214,7 @@ export default function Home() {
             <h2 className="font-semibold mb-3 flex items-center gap-2">🔍 Skills</h2>
             {loadingSkills ? <p className="text-gray-400 text-sm">Loading...</p> : (
               <div className="max-h-64 overflow-y-auto space-y-1 pr-2 custom-scrollbar">
-                {skills.slice(0, 15).map(skill => (
+                {skills.slice(0, 20).map(skill => (
                   <label key={skill.name} className="flex items-center gap-2 cursor-pointer hover:bg-gray-700 p-1.5 rounded-lg transition">
                     <input type="checkbox" checked={selectedSkills.includes(skill.name)} onChange={() => toggleSkill(skill.name)} className="rounded text-purple-500 bg-gray-700 border-gray-600" />
                     <span className="text-sm text-gray-300 flex-1">{skill.name}</span>
@@ -197,21 +230,25 @@ export default function Home() {
         {/* Main */}
         <main className="flex-1 min-w-0">
           {/* Search & Filters */}
-          <div className="bg-gray-800 rounded-xl p-4 mb-4 space-y-3">
-            <div className="flex gap-2">
+          <div className="bg-xl p-4 mb-4 space-y-3">
+-gray-800 rounded            <div className="flex gap-2">
               <input 
                 type="text" 
                 placeholder="Search by job title..." 
                 value={searchQuery} 
                 onChange={e => setSearchQuery(e.target.value)} 
+                onKeyDown={e => e.key === 'Enter' && handleSearch()}
                 className="flex-1 px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" 
               />
+              <button onClick={handleSearch} className="px-6 bg-purple-600 rounded-lg hover:bg-purple-500">Search</button>
             </div>
             
             <div className="flex flex-wrap gap-2 items-center justify-between">
               <div className="flex gap-2 flex-wrap">
-                <button onClick={() => { setShowSaved(false); setSelectedSources([]); setSearchQuery(''); }} className={`px-3 py-1 rounded-full text-sm ${!showSaved && selectedSources.length === 0 && !searchQuery ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'}`}>All ({jobs.length})</button>
-                <button onClick={() => setShowSaved(true)} className={`px-3 py-1 rounded-full text-sm ${showSaved ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'}`}>⭐ Saved ({savedJobs.length})</button>
+                <button onClick={clearFilters} className={`px-3 py-1 rounded-full text-sm ${!showSaved && selectedSources.length === 0 && !searchQuery && selectedSkills.length === 0 ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
+                  All ({filteredJobs.length})
+                </button>
+                <button onClick={() => { setShowSaved(true); setPage(1); }} className={`px-3 py-1 rounded-full text-sm ${showSaved ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'}`}>⭐ Saved ({savedJobs.length})</button>
               </div>
               
               <select 
@@ -222,6 +259,7 @@ export default function Home() {
                 <option value="date">Newest</option>
                 <option value="payout-high">Highest Pay</option>
                 <option value="payout-low">Lowest Pay</option>
+                <option value="alpha">A-Z</option>
               </select>
             </div>
           </div>
@@ -234,9 +272,9 @@ export default function Home() {
             <div className="text-center py-12"><div className="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div><p className="text-gray-400 mt-3">Loading jobs...</p></div>
           ) : displayed.length === 0 ? (
             <div className="text-center py-12 bg-gray-800 rounded-xl">
-              <p className="text-gray-400">No jobs found</p>
+              <p className="text-gray-400">No results found</p>
               {(selectedSources.length > 0 || searchQuery || selectedSkills.length > 0) && (
-                <button onClick={() => { setSelectedSources([]); setSearchQuery(''); setSelectedSkills([]); }} className="mt-2 text-purple-400">Clear filters</button>
+                <button onClick={clearFilters} className="mt-2 text-purple-400">Clear filters</button>
               )}
             </div>
           ) : (
@@ -263,7 +301,7 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="flex flex-col gap-2">
-                        <button onClick={(e) => saveJob(job.id, e)} className={`p-2 rounded-lg ${savedJobs.includes(job.id) ? 'text-yellow-400' : 'text-gray-500 hover:text-yellow-400'}`}>⭐</button>
+                        <button onClick={(e) => saveJob(job.id, e)} className={`p-2 rounded-lg ${savedJobs.includes(job.id) ? 'text-yellow-400' : 'text-gray-400 hover:text-yellow-400'}`}>⭐</button>
                         <a href={job.url} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-500 text-center">Apply</a>
                       </div>
                     </div>
@@ -271,10 +309,22 @@ export default function Home() {
                 ))}
               </div>
               
-              {/* Load More */}
-              {!showSaved && hasMore && (
-                <div className="text-center mt-6">
-                  <button onClick={loadMore} className="px-8 py-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition">Load more ({filteredJobs.length - displayedJobs.length} remaining)</button>
+              {/* Pagination */}
+              {!showSaved && totalPages > 1 && (
+                <div className="flex flex-wrap items-center justify-center gap-2 mt-6">
+                  <button onClick={() => goToPage(1)} disabled={page === 1} className="px-3 py-1 bg-gray-700 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">First</button>
+                  <button onClick={() => goToPage(page - 1)} disabled={page === 1} className="px-3 py-1 bg-gray-700 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">Prev</button>
+                  
+                  {getPageNumbers().map((p, i) => (
+                    typeof p === 'number' ? (
+                      <button key={i} onClick={() => goToPage(p)} className={`px-3 py-1 rounded-lg ${page === p ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'}`}>{p}</button>
+                    ) : (
+                      <span key={i} className="px-2 text-gray-400">...</span>
+                    )
+                  ))}
+                  
+                  <button onClick={() => goToPage(page + 1)} disabled={page === totalPages} className="px-3 py-1 bg-gray-700 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+                  <button onClick={() => goToPage(totalPages)} disabled={page === totalPages} className="px-3 py-1 bg-gray-700 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">Last</button>
                 </div>
               )}
             </>
