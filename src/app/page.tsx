@@ -34,6 +34,7 @@ export default function Home() {
   const [sortBy, setSortBy] = useState<'date' | 'payout-high' | 'payout-low' | 'alpha'>('date');
   const [loading, setLoading] = useState(true);
   const [loadingSkills, setLoadingSkills] = useState(true);
+  const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedJobs, setSavedJobs] = useState<number[]>([]);
   const [showSaved, setShowSaved] = useState(false);
@@ -65,7 +66,7 @@ export default function Home() {
     setPage(1);
     
     const url = new URL(`${API_BASE}/opportunities`);
-    url.searchParams.set('limit', '100');
+    url.searchParams.set('limit', '1000');
     if (selectedSkills.length > 0) url.searchParams.set('skills', selectedSkills.join(','));
 
     fetch(url.toString(), { headers: { 'x-api-key': DEMO_KEY } })
@@ -150,7 +151,9 @@ export default function Home() {
   };
 
   const handleSearch = () => {
+    setSearching(true);
     setPage(1);
+    setTimeout(() => setSearching(false), 300);
   };
 
   const clearFilters = () => {
@@ -207,6 +210,7 @@ export default function Home() {
                 </label>
               ))}
             </div>
+            {selectedSources.length > 0 && <button onClick={() => setSelectedSources([])} className="mt-3 text-sm text-purple-400 hover:text-purple-300">Clear sources</button>}
           </div>
 
           {/* Skills Filter */}
@@ -239,7 +243,9 @@ export default function Home() {
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
                 className="flex-1 px-4 py-2 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" 
               />
-              <button onClick={handleSearch} className="px-6 bg-purple-600 rounded-lg hover:bg-purple-500">Search</button>
+              <button onClick={handleSearch} disabled={searching} className="px-6 bg-purple-600 rounded-lg hover:bg-purple-500 disabled:opacity-50">
+                {searching ? '...' : 'Search'}
+              </button>
             </div>
             
             <div className="flex flex-wrap gap-2 items-center justify-between">
