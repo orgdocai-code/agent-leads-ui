@@ -43,6 +43,7 @@ export default function Home() {
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [hideExpired, setHideExpired] = useState(true); // Default to hiding expired sources
+  const [filterActive, setFilterActive] = useState(true); // Only show active jobs
 
   // Load saved jobs
   useEffect(() => {
@@ -92,6 +93,11 @@ export default function Home() {
     } else if (hideExpired) {
       // By default, hide sources with expired links
       result = result.filter(j => !EXPIRED_SOURCES.includes(j.source));
+    }
+    
+    // Filter by status (active only)
+    if (filterActive) {
+      result = result.filter(j => j.status === 'active');
     }
     
     // Filter by search (title)
@@ -280,6 +286,11 @@ export default function Home() {
                 Hide expired
               </label>
               
+              <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+                <input type="checkbox" checked={filterActive} onChange={e => { setFilterActive(e.target.checked); setPage(1); }} className="rounded text-purple-500 bg-gray-700 border-gray-600" />
+                Active only
+              </label>
+              
               <button onClick={() => window.location.reload()} className="px-3 py-1 bg-gray-700 rounded-full text-sm hover:bg-gray-600 flex items-center gap-1">
                 🔄 Refresh
               </button>
@@ -315,7 +326,7 @@ export default function Home() {
                         {job.skills?.length > 0 && <div className="flex flex-wrap gap-1 mt-2">{job.skills.slice(0, 4).map(s => <span key={s} className="px-2 py-0.5 bg-purple-500/20 text-purple-300 text-xs rounded">{s}</span>)}{job.skills.length > 4 && <span className="text-xs text-gray-500">+{job.skills.length - 4}</span>}</div>}
                         <div className="flex items-center gap-4 mt-3 text-sm">
                           {job.payout && parseFloat(job.payout) > 0 ? (
-                            <span className="text-green-400 font-semibold">💰 {job.payout} {job.payoutCurrency}</span>
+                            <span className="text-green-400 font-semibold">💰 ${parseFloat(job.payout).toFixed(2)} {job.payoutCurrency}</span>
                           ) : (
                             <span className="text-gray-500 font-semibold">💰 Competitive</span>
                           )}
