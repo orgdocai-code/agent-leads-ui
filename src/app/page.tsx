@@ -230,8 +230,7 @@ export default function Home() {
         {/* Main */}
         <main className="flex-1 min-w-0">
           {/* Search & Filters */}
-          <div className="bg-xl p-4 mb-4 space-y-3">
--gray-800 rounded            <div className="flex gap-2">
+          <div className="bg-gray-800 rounded-xl p-4 mb-4 space-y-3">            <div className="flex gap-2">
               <input 
                 type="text" 
                 placeholder="Search by job title..." 
