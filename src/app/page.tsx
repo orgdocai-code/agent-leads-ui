@@ -40,6 +40,7 @@ export default function Home() {
   const [showSaved, setShowSaved] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
 
   // Load saved jobs
   useEffect(() => {
@@ -73,6 +74,7 @@ export default function Home() {
       .then(res => { if (!res.ok) throw new Error(`API error: ${res.status}`); return res.json(); })
       .then(data => {
         setJobs(data.data || []);
+        setTotalCount(data.count || 0);
         setLoading(false);
       })
       .catch(err => { setError('Failed to load jobs. Click to retry.'); setLoading(false); });
@@ -252,7 +254,7 @@ export default function Home() {
             <div className="flex flex-wrap gap-2 items-center justify-between">
               <div className="flex gap-2 flex-wrap">
                 <button onClick={clearFilters} className={`px-3 py-1 rounded-full text-sm ${!showSaved && selectedSources.length === 0 && !searchQuery && selectedSkills.length === 0 ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
-                  All ({filteredJobs.length})
+                  All ({showSaved ? savedJobs.length : (selectedSources.length === 0 && !searchQuery && selectedSkills.length === 0 ? totalCount : filteredJobs.length)})
                 </button>
                 <button onClick={() => { setShowSaved(true); setPage(1); }} className={`px-3 py-1 rounded-full text-sm ${showSaved ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'}`}>⭐ Saved ({savedJobs.length})</button>
               </div>
@@ -303,7 +305,7 @@ export default function Home() {
                           ) : (
                             <span className="text-gray-500 font-semibold">💰 Competitive</span>
                           )}
-                          <span className="text-gray-500">{new Date(job.scrapedAt).toLocaleDateString()}</span>
+                          <span className="text-gray-500">Listed: {new Date(job.scrapedAt).toLocaleDateString()}</span>
                         </div>
                       </div>
                       <div className="flex flex-col gap-2">
