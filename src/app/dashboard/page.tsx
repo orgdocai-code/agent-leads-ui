@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface Agent {
   id: number;
   name: string;
   capabilities: string[];
   created_at: string;
-  last_active: string;
 }
 
 interface Proposal {
@@ -25,8 +25,6 @@ interface Proposal {
   status: string;
   matched_at: string;
   generated_at: string | null;
-  submitted_at: string | null;
-  accepted_at: string | null;
 }
 
 interface Stats {
@@ -41,18 +39,19 @@ interface Stats {
 const API_BASE = 'https://agent-leads-production.up.railway.app';
 
 export default function Dashboard() {
+  const router = useRouter();
+  const [view, setView] = useState<'landing' | 'register' | 'confirm' | 'login' | 'dashboard'>('landing');
   const [apiKey, setApiKey] = useState('');
   const [agent, setAgent] = useState<Agent | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [registering, setRegistering] = useState(false);
   const [registerName, setRegisterName] = useState('');
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
   const [generatingId, setGeneratingId] = useState<number | null>(null);
+  const [confirmedSave, setConfirmedSave] = useState(false);
 
-  // Load API key from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('agentleads_api_key');
     if (saved) {
@@ -66,7 +65,6 @@ export default function Dashboard() {
     setError(null);
     
     try {
-      // Fetch agent info
       const meRes = await fetch(`${API_BASE}/autobid/me`, {
         headers: { 'x-api-key': key }
       });
@@ -79,7 +77,6 @@ export default function Dashboard() {
       setAgent(meData.agent);
       setStats(meData.stats);
       
-      // Fetch proposals
       const proposalsRes = await fetch(`${API_BASE}/autobid/proposals?limit=100`, {
         headers: { 'x-api-key': key }
       });
@@ -88,9 +85,12 @@ export default function Dashboard() {
         const proposalsData = await proposalsRes.json();
         setProposals(proposalsData.proposals || []);
       }
+      
+      setView('dashboard');
     } catch (e: any) {
       setError(e.message);
       setAgent(null);
+      setView('login');
     } finally {
       setLoading(false);
     }
@@ -99,7 +99,7 @@ export default function Dashboard() {
   const handleRegister = async () => {
     if (!registerName.trim()) return;
     
-    setRegistering(true);
+    setLoading(true);
     setError(null);
     
     try {
@@ -113,17 +113,23 @@ export default function Dashboard() {
       
       if (data.success) {
         setGeneratedKey(data.api_key);
-        localStorage.setItem('agentleads_api_key', data.api_key);
-        setApiKey(data.api_key);
-        fetchAgentData(data.api_key);
+        setView('confirm');
       } else {
         setError(data.error || 'Registration failed');
       }
     } catch (e: any) {
       setError(e.message);
     } finally {
-      setRegistering(false);
+      setLoading(false);
     }
+  };
+
+  const handleConfirm = () => {
+    if (!confirmedSave) return;
+    
+    localStorage.setItem('agentleads_api_key', generatedKey!);
+    setApiKey(generatedKey!);
+    fetchAgentData(generatedKey!);
   };
 
   const handleLogin = async () => {
@@ -132,192 +138,118 @@ export default function Dashboard() {
     fetchAgentData(apiKey);
   };
 
-  const handleGenerate = async (proposalId: number) => {
-    setGeneratingId(proposalId);
-    
-    try {
-      const res = await fetch(`${API_BASE}/autobid/generate/${proposalId}`, {
-        method: 'POST',
-        headers: { 'x-api-key': apiKey }
-      });
-      
-      const data = await res.json();
-      
-      if (data.success) {
-        // Refresh proposals
-        fetchAgentData(apiKey);
-      } else {
-        setError(data.error || 'Generation failed');
-      }
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setGeneratingId(null);
-    }
-  };
-
-  const handleUpdateStatus = async (proposalId: number, status: string) => {
-    try {
-      const res = await fetch(`${API_BASE}/autobid/proposal/${proposalId}`, {
-        method: 'PATCH',
-        headers: { 
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey 
-        },
-        body: JSON.stringify({ status })
-      });
-      
-      if (res.ok) {
-        fetchAgentData(apiKey);
-      }
-    } catch (e: any) {
-      setError(e.message);
-    }
-  };
-
   const handleLogout = () => {
     localStorage.removeItem('agentleads_api_key');
     setApiKey('');
     setAgent(null);
     setProposals([]);
     setStats(null);
+    setView('landing');
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
   };
 
-  // Show registration if not logged in
-  if (!agent && !loading) {
+  // Landing page
+  if (view === 'landing') {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff', padding: '40px' }}>
+        <div style={{ maxWidth: '500px', margin: '0 auto', textAlign: 'center' }}>
+          <h1 style={{ fontSize: '2.5rem', marginBottom: '10px' }}>🤖 Agent Dashboard</h1>
+          <p style={{ color: '#888', marginBottom: '40px' }}>
+            AI Agent job matching and proposal generation
+          </p>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <button 
+              onClick={() => setView('register')}
+              style={{
+                background: '#10b981',
+                border: 'none',
+                color: '#fff',
+                padding: '20px',
+                borderRadius: '12px',
+                fontSize: '18px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              🚀 Register New Agent
+            </button>
+            
+            <button 
+              onClick={() => setView('login')}
+              style={{
+                background: 'transparent',
+                border: '2px solid #333',
+                color: '#fff',
+                padding: '20px',
+                borderRadius: '12px',
+                fontSize: '18px',
+                cursor: 'pointer'
+              }}
+            >
+              🔑 Login with API Key
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Registration page
+  if (view === 'register') {
     return (
       <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff', padding: '40px' }}>
         <div style={{ maxWidth: '500px', margin: '0 auto' }}>
-          <h1 style={{ fontSize: '2rem', marginBottom: '10px' }}>🤖 Agent Dashboard</h1>
+          <button onClick={() => setView('landing')} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', marginBottom: '20px' }}>
+            ← Back
+          </button>
+          
+          <h1 style={{ fontSize: '2rem', marginBottom: '10px' }}>Register Agent</h1>
           <p style={{ color: '#888', marginBottom: '30px' }}>
-            Register your agent to start receiving job proposals
+            Create your agent identity
           </p>
           
-          {generatedKey ? (
-            <div style={{ 
-              background: '#1a1a2e', 
-              border: '2px solid #f59e0b', 
-              borderRadius: '12px', 
-              padding: '20px',
+          <input
+            type="text"
+            placeholder="Agent name (e.g., MyBot)"
+            value={registerName}
+            onChange={(e) => setRegisterName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleRegister()}
+            style={{
+              width: '100%',
+              padding: '15px',
+              background: '#1a1a2e',
+              border: '1px solid #333',
+              borderRadius: '8px',
+              color: '#fff',
+              fontSize: '16px',
               marginBottom: '20px'
-            }}>
-              <div style={{ color: '#f59e0b', fontWeight: 'bold', marginBottom: '10px' }}>
-                ⚠️ SAVE YOUR API KEY NOW!
-              </div>
-              <div style={{ 
-                background: '#000', 
-                padding: '15px', 
-                borderRadius: '8px',
-                fontFamily: 'monospace',
-                wordBreak: 'break-all',
-                marginBottom: '10px'
-              }}>
-                {generatedKey}
-              </div>
-              <button 
-                onClick={() => copyToClipboard(generatedKey)}
-                style={{
-                  background: '#3b82f6',
-                  border: 'none',
-                  color: '#fff',
-                  padding: '10px 20px',
-                  borderRadius: '6px',
-                  cursor: 'pointer'
-                }}
-              >
-                📋 Copy to Clipboard
-              </button>
-              <p style={{ color: '#f59e0b', marginTop: '15px', fontSize: '14px' }}>
-                You cannot regenerate this key or recover history!
-              </p>
-            </div>
-          ) : (
-            <div style={{ 
-              background: '#1a1a2e', 
-              borderRadius: '12px', 
-              padding: '20px' 
-            }}>
-              <input
-                type="text"
-                placeholder="Agent name (e.g., MyBot)"
-                value={registerName}
-                onChange={(e) => setRegisterName(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  background: '#0a0a0f',
-                  border: '1px solid #333',
-                  borderRadius: '8px',
-                  color: '#fff',
-                  marginBottom: '15px',
-                  fontSize: '16px'
-                }}
-              />
-              <button 
-                onClick={handleRegister}
-                disabled={registering}
-                style={{
-                  width: '100%',
-                  background: registering ? '#666' : '#10b981',
-                  border: 'none',
-                  color: '#fff',
-                  padding: '14px',
-                  borderRadius: '8px',
-                  cursor: registering ? 'not-allowed' : 'pointer',
-                  fontSize: '16px',
-                  fontWeight: 'bold'
-                }}
-              >
-                {registering ? 'Creating...' : '🚀 Register Agent'}
-              </button>
-            </div>
-          )}
+            }}
+          />
           
-          <div style={{ marginTop: '30px', textAlign: 'center' }}>
-            <p style={{ color: '#666' }}>Already have an API key?</p>
-            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-              <input
-                type="text"
-                placeholder="Paste your API key"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  background: '#1a1a2e',
-                  border: '1px solid #333',
-                  borderRadius: '8px',
-                  color: '#fff'
-                }}
-              />
-              <button 
-                onClick={handleLogin}
-                style={{
-                  background: '#3b82f6',
-                  border: 'none',
-                  color: '#fff',
-                  padding: '12px 20px',
-                  borderRadius: '8px',
-                  cursor: 'pointer'
-                }}
-              >
-                Login
-              </button>
-            </div>
-          </div>
+          <button 
+            onClick={handleRegister}
+            disabled={loading || !registerName.trim()}
+            style={{
+              width: '100%',
+              background: loading ? '#666' : '#10b981',
+              border: 'none',
+              color: '#fff',
+              padding: '15px',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? 'Creating...' : 'Generate API Key'}
+          </button>
           
           {error && (
-            <div style={{ 
-              background: '#7f1d1d', 
-              color: '#fca5a5', 
-              padding: '15px', 
-              borderRadius: '8px',
-              marginTop: '20px'
-            }}>
+            <div style={{ background: '#7f1d1d', color: '#fca5a5', padding: '15px', borderRadius: '8px', marginTop: '20px' }}>
               {error}
             </div>
           )}
@@ -326,9 +258,155 @@ export default function Dashboard() {
     );
   }
 
+  // Confirm API key page
+  if (view === 'confirm') {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff', padding: '40px' }}>
+        <div style={{ maxWidth: '500px', margin: '0 auto' }}>
+          <div style={{ 
+            background: '#1a1a2e', 
+            border: '2px solid #f59e0b', 
+            borderRadius: '12px', 
+            padding: '25px',
+            marginBottom: '20px'
+          }}>
+            <div style={{ color: '#f59e0b', fontWeight: 'bold', fontSize: '20px', marginBottom: '15px' }}>
+              ⚠️ IMPORTANT - SAVE YOUR API KEY
+            </div>
+            <p style={{ color: '#fca5a5', marginBottom: '15px' }}>
+              You will NOT see this again! Copy it now and store it safely.
+            </p>
+            <div style={{ 
+              background: '#000', 
+              padding: '15px', 
+              borderRadius: '8px',
+              fontFamily: 'monospace',
+              wordBreak: 'break-all',
+              fontSize: '14px',
+              marginBottom: '15px'
+            }}>
+              {generatedKey}
+            </div>
+            <button 
+              onClick={() => copyToClipboard(generatedKey!)}
+              style={{
+                background: '#3b82f6',
+                border: 'none',
+                color: '#fff',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              📋 Copy to Clipboard
+            </button>
+          </div>
+          
+          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={confirmedSave}
+              onChange={(e) => setConfirmedSave(e.target.checked)}
+              style={{ width: '20px', height: '20px' }}
+            />
+            <span>I have saved my API key securely</span>
+          </label>
+          
+          <button 
+            onClick={handleConfirm}
+            disabled={!confirmedSave}
+            style={{
+              width: '100%',
+              background: confirmedSave ? '#10b981' : '#333',
+              border: 'none',
+              color: '#fff',
+              padding: '15px',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              cursor: confirmedSave ? 'pointer' : 'not-allowed'
+            }}
+          >
+            Continue to Dashboard →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Login page
+  if (view === 'login') {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff', padding: '40px' }}>
+        <div style={{ maxWidth: '500px', margin: '0 auto' }}>
+          <button onClick={() => setView('landing')} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', marginBottom: '20px' }}>
+            ← Back
+          </button>
+          
+          <h1 style={{ fontSize: '2rem', marginBottom: '10px' }}>Login</h1>
+          <p style={{ color: '#888', marginBottom: '30px' }}>
+            Enter your API key to access your dashboard
+          </p>
+          
+          <input
+            type="text"
+            placeholder="Paste your API key (e.g., al_xxxxxxxxxxxx)"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+            style={{
+              width: '100%',
+              padding: '15px',
+              background: '#1a1a2e',
+              border: '1px solid #333',
+              borderRadius: '8px',
+              color: '#fff',
+              fontSize: '14px',
+              fontFamily: 'monospace',
+              marginBottom: '20px'
+            }}
+          />
+          
+          <button 
+            onClick={handleLogin}
+            disabled={loading || !apiKey.trim()}
+            style={{
+              width: '100%',
+              background: loading ? '#666' : '#3b82f6',
+              border: 'none',
+              color: '#fff',
+              padding: '15px',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? 'Logging in...' : 'Login'}
+          </button>
+          
+          {error && (
+            <div style={{ background: '#7f1d1d', color: '#fca5a5', padding: '15px', borderRadius: '8px', marginTop: '20px' }}>
+              {error}
+            </div>
+          )}
+          
+          <div style={{ marginTop: '30px', textAlign: 'center' }}>
+            <button 
+              onClick={() => setView('register')}
+              style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              Don't have an API key? Register
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Dashboard view
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0f', color: '#fff' }}>
-      {/* Header */}
       <header style={{ 
         background: '#1a1a2e', 
         padding: '20px 40px', 
@@ -358,7 +436,6 @@ export default function Dashboard() {
         </button>
       </header>
 
-      {/* Stats */}
       {stats && (
         <div style={{ 
           display: 'grid', 
@@ -376,7 +453,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Proposals List */}
       <div style={{ padding: '20px 40px' }}>
         <h2 style={{ marginBottom: '20px' }}>📋 Your Proposals</h2>
         
@@ -390,7 +466,7 @@ export default function Dashboard() {
             textAlign: 'center',
             color: '#666'
           }}>
-            No proposals yet. Use the API to save jobs!
+            No proposals yet. Matching jobs will appear here automatically.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -400,7 +476,6 @@ export default function Dashboard() {
                 proposal={proposal}
                 generating={generatingId === proposal.id}
                 onGenerate={() => handleGenerate(proposal.id)}
-                onStatusChange={(status) => handleUpdateStatus(proposal.id, status)}
               />
             ))}
           </div>
@@ -408,33 +483,41 @@ export default function Dashboard() {
       </div>
     </div>
   );
+
+  async function handleGenerate(proposalId: number) {
+    setGeneratingId(proposalId);
+    
+    try {
+      const res = await fetch(`${API_BASE}/autobid/generate/${proposalId}`, {
+        method: 'POST',
+        headers: { 'x-api-key': apiKey }
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        fetchAgentData(apiKey);
+      } else {
+        setError(data.error || 'Generation failed');
+      }
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setGeneratingId(null);
+    }
+  }
 }
 
 function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div style={{ 
-      background: '#1a1a2e', 
-      padding: '15px', 
-      borderRadius: '8px',
-      textAlign: 'center'
-    }}>
+    <div style={{ background: '#1a1a2e', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
       <div style={{ fontSize: '24px', fontWeight: 'bold', color }}>{value}</div>
       <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>{label}</div>
     </div>
   );
 }
 
-function ProposalCard({ 
-  proposal, 
-  generating,
-  onGenerate,
-  onStatusChange 
-}: { 
-  proposal: Proposal;
-  generating: boolean;
-  onGenerate: () => void;
-  onStatusChange: (status: string) => void;
-}) {
+function ProposalCard({ proposal, generating, onGenerate }: { proposal: Proposal; generating: boolean; onGenerate: () => void }) {
   const [expanded, setExpanded] = useState(false);
 
   const statusColors: Record<string, string> = {
@@ -446,30 +529,14 @@ function ProposalCard({
   };
 
   return (
-    <div style={{ 
-      background: '#1a1a2e', 
-      borderRadius: '12px',
-      overflow: 'hidden'
-    }}>
+    <div style={{ background: '#1a1a2e', borderRadius: '12px', overflow: 'hidden' }}>
       <div 
-        style={{ 
-          padding: '15px 20px',
-          cursor: 'pointer',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}
+        style={{ padding: '15px 20px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
         onClick={() => setExpanded(!expanded)}
       >
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ 
-              background: statusColors[proposal.status] || '#666',
-              padding: '2px 8px',
-              borderRadius: '4px',
-              fontSize: '12px',
-              fontWeight: 'bold'
-            }}>
+            <span style={{ background: statusColors[proposal.status] || '#666', padding: '2px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
               {proposal.status}
             </span>
             <span style={{ fontWeight: 'bold' }}>{proposal.job_title}</span>
@@ -479,30 +546,15 @@ function ProposalCard({
             {proposal.payout > 0 ? ` $${proposal.payout} ${proposal.currency}` : ' Competitive'}
           </div>
         </div>
-        <div style={{ color: '#666' }}>
-          {expanded ? '▼' : '▶'}
-        </div>
+        <div style={{ color: '#666' }}>{expanded ? '▼' : '▶'}</div>
       </div>
       
       {expanded && (
-        <div style={{ 
-          padding: '20px', 
-          borderTop: '1px solid #333',
-          background: '#0a0a0f'
-        }}>
-          {proposal.job_description && (
-            <p style={{ color: '#888', marginBottom: '15px' }}>
-              {proposal.job_description}
-            </p>
-          )}
+        <div style={{ padding: '20px', borderTop: '1px solid #333', background: '#0a0a0f' }}>
+          {proposal.job_description && <p style={{ color: '#888', marginBottom: '15px' }}>{proposal.job_description}</p>}
           
           {proposal.job_url && (
-            <a 
-              href={proposal.job_url} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              style={{ color: '#3b82f6', marginBottom: '15px', display: 'block' }}
-            >
+            <a href={proposal.job_url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', marginBottom: '15px', display: 'block' }}>
               🔗 View Original Job →
             </a>
           )}
@@ -510,15 +562,7 @@ function ProposalCard({
           {proposal.proposal_text ? (
             <div style={{ marginBottom: '15px' }}>
               <h4 style={{ color: '#10b981', marginBottom: '10px' }}>Generated Proposal:</h4>
-              <pre style={{ 
-                background: '#1a1a2e', 
-                padding: '15px', 
-                borderRadius: '8px',
-                whiteSpace: 'pre-wrap',
-                fontSize: '13px',
-                maxHeight: '300px',
-                overflow: 'auto'
-              }}>
+              <pre style={{ background: '#1a1a2e', padding: '15px', borderRadius: '8px', whiteSpace: 'pre-wrap', fontSize: '13px', maxHeight: '300px', overflow: 'auto' }}>
                 {proposal.proposal_text}
               </pre>
             </div>
@@ -526,63 +570,11 @@ function ProposalCard({
             <button 
               onClick={(e) => { e.stopPropagation(); onGenerate(); }}
               disabled={generating}
-              style={{
-                background: generating ? '#666' : '#10b981',
-                border: 'none',
-                color: '#fff',
-                padding: '10px 20px',
-                borderRadius: '6px',
-                cursor: generating ? 'not-allowed' : 'pointer',
-                marginBottom: '15px'
-              }}
+              style={{ background: generating ? '#666' : '#10b981', border: 'none', color: '#fff', padding: '10px 20px', borderRadius: '6px', cursor: generating ? 'not-allowed' : 'pointer', marginBottom: '15px' }}
             >
               {generating ? 'Generating...' : '✨ Generate Proposal'}
             </button>
           )}
-          
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onStatusChange('submitted'); }}
-              disabled={!proposal.proposal_text}
-              style={{
-                background: '#f59e0b',
-                border: 'none',
-                color: '#fff',
-                padding: '8px 16px',
-                borderRadius: '6px',
-                cursor: proposal.proposal_text ? 'pointer' : 'not-allowed',
-                opacity: proposal.proposal_text ? 1 : 0.5
-              }}
-            >
-              📤 Mark Submitted
-            </button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onStatusChange('accepted'); }}
-              style={{
-                background: '#22c55e',
-                border: 'none',
-                color: '#fff',
-                padding: '8px 16px',
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              ✅ Accepted
-            </button>
-            <button 
-              onClick={(e) => { e.stopPropagation(); onStatusChange('rejected'); }}
-              style={{
-                background: '#ef4444',
-                border: 'none',
-                color: '#fff',
-                padding: '8px 16px',
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              ❌ Rejected
-            </button>
-          </div>
         </div>
       )}
     </div>
