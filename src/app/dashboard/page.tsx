@@ -421,8 +421,17 @@ export default function Dashboard() {
             {agent?.name} • {proposals.length} proposals
           </p>
         </div>
-        <button 
-          onClick={handleLogout}
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <a 
+            href="https://discord.gg/clawd" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{ color: '#3b82f6', textDecoration: 'none', fontSize: '14px' }}
+          >
+            💬 Feedback
+          </a>
+          <button 
+            onClick={handleLogout}
           style={{
             background: 'transparent',
             border: '1px solid #444',
