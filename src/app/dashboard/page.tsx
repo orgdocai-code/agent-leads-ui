@@ -486,19 +486,44 @@ export default function Dashboard() {
 
   async function handleGenerate(proposalId: number) {
     setGeneratingId(proposalId);
+    setError(null);
     
     try {
-      const res = await fetch(`${API_BASE}/autobid/generate/${proposalId}`, {
+      // First check if payment required
+      const checkRes = await fetch(`${API_BASE}/autobid/generate/${proposalId}`, {
         method: 'POST',
         headers: { 'x-api-key': apiKey }
       });
       
-      const data = await res.json();
+      const checkData = await checkRes.json();
       
-      if (data.success) {
+      if (checkData.paymentRequired) {
+        // Show payment modal or handle inline
+        const confirmPay = confirm(`Generate AI proposal for $${checkData.price} USDC?\n\nWallet: ${checkData.wallet}\n\nClick OK to pay and generate.`);
+        
+        if (!confirmPay) {
+          setGeneratingId(null);
+          return;
+        }
+        
+        // Pay and generate
+        const payRes = await fetch(`${API_BASE}/autobid/pay-generate/${proposalId}`, {
+          method: 'POST',
+          headers: { 'x-api-key': apiKey }
+        });
+        
+        const payData = await payRes.json();
+        
+        if (payData.success) {
+          fetchAgentData(apiKey);
+        } else {
+          setError(payData.error || 'Payment/generation failed');
+        }
+      } else if (checkData.success) {
+        // Already generated, just refresh
         fetchAgentData(apiKey);
       } else {
-        setError(data.error || 'Generation failed');
+        setError(checkData.error || 'Generation failed');
       }
     } catch (e: any) {
       setError(e.message);
@@ -572,7 +597,7 @@ function ProposalCard({ proposal, generating, onGenerate }: { proposal: Proposal
               disabled={generating}
               style={{ background: generating ? '#666' : '#10b981', border: 'none', color: '#fff', padding: '10px 20px', borderRadius: '6px', cursor: generating ? 'not-allowed' : 'pointer', marginBottom: '15px' }}
             >
-              {generating ? 'Generating...' : '✨ Generate Proposal'}
+              {generating ? 'Processing...' : '✨ Generate Proposal (1¢ USDC)'}
             </button>
           )}
         </div>
