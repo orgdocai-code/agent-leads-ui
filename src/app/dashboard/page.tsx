@@ -41,6 +41,7 @@ const API_BASE = 'https://agent-leads-production.up.railway.app';
 export default function Dashboard() {
   const router = useRouter();
   const [view, setView] = useState<'landing' | 'register' | 'confirm' | 'login' | 'dashboard'>('landing');
+  const [viewTab, setViewTab] = useState<'proposals' | 'profile' | 'match'>('proposals');
   const [apiKey, setApiKey] = useState('');
   const [agent, setAgent] = useState<Agent | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -51,6 +52,20 @@ export default function Dashboard() {
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
   const [generatingId, setGeneratingId] = useState<number | null>(null);
   const [confirmedSave, setConfirmedSave] = useState(false);
+  
+  // Profile state
+  const [profileName, setProfileName] = useState('');
+  const [capabilities, setCapabilities] = useState<string[]>([]);
+  const [capabilityInput, setCapabilityInput] = useState('');
+  const [resumeText, setResumeText] = useState('');
+  const [coverLetterTemplate, setCoverLetterTemplate] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  
+  // Match state
+  const [matches, setMatches] = useState<any[]>([]);
+  const [loadingMatches, setLoadingMatches] = useState(false);
+  const [applyingJob, setApplyingJob] = useState<number | null>(null);
+  const [coverLetter, setCoverLetter] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('agentleads_api_key');
@@ -149,6 +164,98 @@ export default function Dashboard() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+  
+  // Load profile data when agent is loaded
+  useEffect(() => {
+    if (agent) {
+      setProfileName(agent.name || '');
+      setCapabilities(agent.capabilities || []);
+      loadProfile();
+    }
+  }, [agent]);
+  
+  const loadProfile = async () => {
+    if (!apiKey) return;
+    try {
+      const res = await fetch(`${API_BASE}/autobid/profile`, {
+        headers: { 'x-api-key': apiKey }
+      });
+      const data = await res.json();
+      if (data.profile) {
+        setResumeText(data.profile.resumeText || '');
+        setCoverLetterTemplate(data.profile.coverLetterTemplate || '');
+      }
+    } catch (e) { console.error(e); }
+  };
+  
+  const saveProfile = async () => {
+    if (!apiKey) return;
+    setSavingProfile(true);
+    try {
+      const res = await fetch(`${API_BASE}/autobid/profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+        body: JSON.stringify({
+          name: profileName,
+          capabilities,
+          resume_text: resumeText,
+          cover_letter_template: coverLetterTemplate
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Profile saved!');
+      }
+    } catch (e) { alert('Error saving profile'); }
+    setSavingProfile(false);
+  };
+  
+  const addCapability = () => {
+    if (capabilityInput.trim() && !capabilities.includes(capabilityInput.trim())) {
+      setCapabilities([...capabilities, capabilityInput.trim()]);
+      setCapabilityInput('');
+    }
+  };
+  
+  const removeCapability = (cap: string) => {
+    setCapabilities(capabilities.filter(c => c !== cap));
+  };
+  
+  const findMatches = async () => {
+    if (!apiKey) return;
+    setLoadingMatches(true);
+    try {
+      const res = await fetch(`${API_BASE}/autobid/match`, {
+        method: 'POST',
+        headers: { 'x-api-key': apiKey }
+      });
+      const data = await res.json();
+      setMatches(data.matches || []);
+    } catch (e) { console.error(e); }
+    setLoadingMatches(false);
+  };
+  
+  const applyToJob = async (job: any) => {
+    if (!apiKey) return;
+    setApplyingJob(job.id);
+    try {
+      const res = await fetch(`${API_BASE}/autobid/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+        body: JSON.stringify({
+          job_id: job.id,
+          job_title: job.title,
+          job_description: job.description,
+          job_url: job.url
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCoverLetter(data.coverLetter);
+      }
+    } catch (e) { console.error(e); }
+    setApplyingJob(null);
   };
 
   // Landing page
@@ -445,7 +552,20 @@ export default function Dashboard() {
         </button>
       </header>
 
-      {stats && (
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '0', borderBottom: '1px solid #333' }}>
+        <button onClick={() => setViewTab('proposals')} style={{ padding: '15px 30px', background: viewTab === 'proposals' ? '#1a1a2e' : 'transparent', border: 'none', borderBottom: viewTab === 'proposals' ? '2px solid #8b5cf6' : '2px solid transparent', color: viewTab === 'proposals' ? '#fff' : '#888', cursor: 'pointer', fontSize: '14px' }}>
+          📋 Proposals ({proposals.length})
+        </button>
+        <button onClick={() => setViewTab('match')} style={{ padding: '15px 30px', background: viewTab === 'match' ? '#1a1a2e' : 'transparent', border: 'none', borderBottom: viewTab === 'match' ? '2px solid #8b5cf6' : '2px solid transparent', color: viewTab === 'match' ? '#fff' : '#888', cursor: 'pointer', fontSize: '14px' }}>
+          🎯 Smart Match
+        </button>
+        <button onClick={() => setViewTab('profile')} style={{ padding: '15px 30px', background: viewTab === 'profile' ? '#1a1a2e' : 'transparent', border: 'none', borderBottom: viewTab === 'profile' ? '2px solid #8b5cf6' : '2px solid transparent', color: viewTab === 'profile' ? '#fff' : '#888', cursor: 'pointer', fontSize: '14px' }}>
+          👤 Profile
+        </button>
+      </div>
+
+      {viewTab === 'proposals' && stats && (
         <div style={{ 
           display: 'grid', 
           gridTemplateColumns: 'repeat(6, 1fr)', 
@@ -640,6 +760,122 @@ function ProposalCard({ proposal, generating, onGenerate }: { proposal: Proposal
               {generating ? 'Generating...' : '✨ Generate Proposal'}
             </button>
           )}
+        </div>
+      )}
+
+      {/* Smart Match Tab */}
+      {viewTab === 'match' && (
+        <div style={{ padding: '30px 40px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h2>🎯 Smart Match</h2>
+            <button onClick={findMatches} disabled={loadingMatches} style={{ background: loadingMatches ? '#666' : '#8b5cf6', border: 'none', color: '#fff', padding: '12px 24px', borderRadius: '6px', cursor: loadingMatches ? 'not-allowed' : 'pointer', fontSize: '14px' }}>
+              {loadingMatches ? 'Finding matches...' : '🔍 Find Matching Jobs'}
+            </button>
+          </div>
+          
+          {matches.length === 0 ? (
+            <div style={{ background: '#1a1a2e', padding: '40px', borderRadius: '12px', textAlign: 'center' }}>
+              <p style={{ color: '#888', marginBottom: '15px' }}>
+                Upload your resume and add capabilities to get matched with relevant jobs.
+              </p>
+              <button onClick={() => setViewTab('profile')} style={{ background: '#8b5cf6', border: 'none', color: '#fff', padding: '12px 24px', borderRadius: '6px', cursor: 'pointer' }}>
+                👤 Set Up Profile First
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              {matches.map((job) => (
+                <div key={job.id} style={{ background: '#1a1a2e', padding: '20px', borderRadius: '12px', border: '1px solid #333' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                        <span style={{ background: job.matchScore >= 50 ? '#10b981' : job.matchScore >= 25 ? '#f59e0b' : '#666', color: '#fff', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' }}>
+                          {job.matchScore}% Match
+                        </span>
+                        <span style={{ color: '#666', fontSize: '12px' }}>{job.source}</span>
+                      </div>
+                      <h3 style={{ margin: '0 0 8px', fontSize: '16px' }}>{job.title}</h3>
+                      {job.payout > 0 && <p style={{ color: '#10b981', margin: '0 0 10px' }}>💰 ${job.payout} {job.currency}</p>}
+                      {job.matchedSkills?.length > 0 && (
+                        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                          {job.matchedSkills.map((s: string) => (
+                            <span key={s} style={{ background: '#333', color: '#aaa', padding: '3px 8px', borderRadius: '4px', fontSize: '11px' }}>{s}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      {job.url && <a href={job.url} target="_blank" rel="noopener noreferrer" style={{ background: '#333', color: '#fff', padding: '8px 16px', borderRadius: '6px', textDecoration: 'none', fontSize: '13px' }}>View</a>}
+                      <button onClick={() => applyToJob(job)} disabled={applyingJob === job.id} style={{ background: applyingJob === job.id ? '#666' : '#10b981', border: 'none', color: '#fff', padding: '8px 16px', borderRadius: '6px', cursor: applyingJob === job.id ? 'not-allowed' : 'pointer', fontSize: '13px' }}>
+                        {applyingJob === job.id ? 'Writing...' : '📝 Apply'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* Cover Letter Modal */}
+          {coverLetter && (
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+              <div style={{ background: '#1a1a2e', padding: '30px', borderRadius: '12px', maxWidth: '600px', width: '90%' }}>
+                <h3 style={{ marginTop: 0 }}>📝 Generated Cover Letter</h3>
+                <pre style={{ background: '#0a0a0f', padding: '20px', borderRadius: '8px', whiteSpace: 'pre-wrap', maxHeight: '400px', overflow: 'auto' }}>{coverLetter}</pre>
+                <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                  <button onClick={() => { navigator.clipboard.writeText(coverLetter); alert('Copied!'); }} style={{ background: '#3b82f6', border: 'none', color: '#fff', padding: '12px 24px', borderRadius: '6px', cursor: 'pointer', flex: 1 }}>📋 Copy</button>
+                  <button onClick={() => setCoverLetter(null)} style={{ background: '#333', border: 'none', color: '#fff', padding: '12px 24px', borderRadius: '6px', cursor: 'pointer', flex: 1 }}>Close</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Profile Tab */}
+      {viewTab === 'profile' && (
+        <div style={{ padding: '30px 40px' }}>
+          <h2 style={{ marginBottom: '20px' }}>👤 Your Profile</h2>
+          
+          <div style={{ background: '#1a1a2e', padding: '25px', borderRadius: '12px', marginBottom: '20px' }}>
+            <label style={{ display: 'block', marginBottom: '8px', color: '#888', fontSize: '14px' }}>Agent Name</label>
+            <input value={profileName} onChange={(e) => setProfileName(e.target.value)} style={{ width: '100%', padding: '12px', background: '#0a0a0f', border: '1px solid #333', borderRadius: '6px', color: '#fff', fontSize: '14px', marginBottom: '20px' }} />
+            
+            <label style={{ display: 'block', marginBottom: '8px', color: '#888', fontSize: '14px' }}>Capabilities (skills)</label>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+              <input value={capabilityInput} onChange={(e) => setCapabilityInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addCapability()} placeholder="Add a skill (e.g., react, python)" style={{ flex: 1, padding: '12px', background: '#0a0a0f', border: '1px solid #333', borderRadius: '6px', color: '#fff', fontSize: '14px' }} />
+              <button onClick={addCapability} style={{ background: '#8b5cf6', border: 'none', color: '#fff', padding: '12px 20px', borderRadius: '6px', cursor: 'pointer' }}>Add</button>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
+              {capabilities.map((cap) => (
+                <span key={cap} style={{ background: '#8b5cf6', color: '#fff', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {cap}
+                  <button onClick={() => removeCapability(cap)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 0, fontSize: '16px' }}>×</button>
+                </span>
+              ))}
+            </div>
+            
+            <label style={{ display: 'block', marginBottom: '8px', color: '#888', fontSize: '14px' }}>Resume / Background (paste text)</label>
+            <textarea value={resumeText} onChange={(e) => setResumeText(e.target.value)} placeholder="Paste your resume or describe your experience..." style={{ width: '100%', height: '150px', padding: '12px', background: '#0a0a0f', border: '1px solid #333', borderRadius: '6px', color: '#fff', fontSize: '14px', marginBottom: '20px', resize: 'vertical' }} />
+            
+            <label style={{ display: 'block', marginBottom: '8px', color: '#888', fontSize: '14px' }}>Cover Letter Template (optional)</label>
+            <textarea value={coverLetterTemplate} onChange={(e) => setCoverLetterTemplate(e.target.value)} placeholder="Use {'{job_title}'} and {'{capabilities}'} as placeholders..." style={{ width: '100%', height: '100px', padding: '12px', background: '#0a0a0f', border: '1px solid #333', borderRadius: '6px', color: '#fff', fontSize: '14px', marginBottom: '20px', resize: 'vertical' }} />
+            
+            <button onClick={saveProfile} disabled={savingProfile} style={{ background: savingProfile ? '#666' : '#10b981', border: 'none', color: '#fff', padding: '14px 28px', borderRadius: '6px', cursor: savingProfile ? 'not-allowed' : 'pointer', fontSize: '14px' }}>
+              {savingProfile ? 'Saving...' : '💾 Save Profile'}
+            </button>
+          </div>
+          
+          <div style={{ background: '#1a1a2e', padding: '25px', borderRadius: '12px' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '15px' }}>💡 How it works</h3>
+            <ul style={{ color: '#888', lineHeight: '1.8', paddingLeft: '20px' }}>
+              <li>Add your capabilities (skills) so we know what you're good at</li>
+              <li>Paste your resume so AI can match you to relevant jobs</li>
+              <li>Use Smart Match to find jobs that match your profile</li>
+              <li>One-click Apply generates a personalized cover letter for each job</li>
+              <li>All AI-generated proposals are <strong style={{ color: '#10b981' }}>FREE</strong> for now!</li>
+            </ul>
+          </div>
         </div>
       )}
     </div>
