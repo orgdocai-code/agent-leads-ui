@@ -22,7 +22,7 @@ const API_BASE = 'https://agent-leads-production.up.railway.app';
 const DEMO_KEY = 'demo';
 const JOBS_PER_PAGE = 20;
 
-const SOURCES = ['rentahuman', 'moltbook', 'clawlancer', 'x402bazaar', 'owockibot'];
+const SOURCES = ['rentahuman', 'moltbook', 'clawlancer', 'x402bazaar', 'owockibot', 'arbeitnow'];
 const EXPIRED_SOURCES = ['rentahuman', 'moltbook']; // Sources with expired links
 
 export default function Home() {
