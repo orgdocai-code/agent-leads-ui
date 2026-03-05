@@ -423,7 +423,7 @@ export default function Dashboard() {
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <a 
-            href="https://discord.gg/clawd" 
+            href="https://moltbook.com" 
             target="_blank" 
             rel="noopener noreferrer"
             style={{ color: '#3b82f6', textDecoration: 'none', fontSize: '14px' }}
