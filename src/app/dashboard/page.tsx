@@ -489,41 +489,17 @@ export default function Dashboard() {
     setError(null);
     
     try {
-      // First check if payment required
-      const checkRes = await fetch(`${API_BASE}/autobid/generate/${proposalId}`, {
+      const res = await fetch(`${API_BASE}/autobid/generate/${proposalId}`, {
         method: 'POST',
         headers: { 'x-api-key': apiKey }
       });
       
-      const checkData = await checkRes.json();
+      const data = await res.json();
       
-      if (checkData.paymentRequired) {
-        // Show payment modal or handle inline
-        const confirmPay = confirm(`Generate AI proposal for $${checkData.price} USDC?\n\nWallet: ${checkData.wallet}\n\nClick OK to pay and generate.`);
-        
-        if (!confirmPay) {
-          setGeneratingId(null);
-          return;
-        }
-        
-        // Pay and generate
-        const payRes = await fetch(`${API_BASE}/autobid/pay-generate/${proposalId}`, {
-          method: 'POST',
-          headers: { 'x-api-key': apiKey }
-        });
-        
-        const payData = await payRes.json();
-        
-        if (payData.success) {
-          fetchAgentData(apiKey);
-        } else {
-          setError(payData.error || 'Payment/generation failed');
-        }
-      } else if (checkData.success) {
-        // Already generated, just refresh
+      if (data.success) {
         fetchAgentData(apiKey);
       } else {
-        setError(checkData.error || 'Generation failed');
+        setError(data.error || 'Generation failed');
       }
     } catch (e: any) {
       setError(e.message);
@@ -597,7 +573,7 @@ function ProposalCard({ proposal, generating, onGenerate }: { proposal: Proposal
               disabled={generating}
               style={{ background: generating ? '#666' : '#10b981', border: 'none', color: '#fff', padding: '10px 20px', borderRadius: '6px', cursor: generating ? 'not-allowed' : 'pointer', marginBottom: '15px' }}
             >
-              {generating ? 'Processing...' : '✨ Generate Proposal (1¢ USDC)'}
+              {generating ? 'Generating...' : '✨ Generate Proposal'}
             </button>
           )}
         </div>
