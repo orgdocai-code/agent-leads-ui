@@ -507,6 +507,25 @@ export default function Dashboard() {
       setGeneratingId(null);
     }
   }
+
+  async function onStatusChange(proposalId: number, status: string) {
+    try {
+      const res = await fetch(`${API_BASE}/autobid/proposal/${proposalId}`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey 
+        },
+        body: JSON.stringify({ status })
+      });
+      
+      if (res.ok) {
+        fetchAgentData(apiKey);
+      }
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
 }
 
 function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
@@ -566,6 +585,42 @@ function ProposalCard({ proposal, generating, onGenerate }: { proposal: Proposal
               <pre style={{ background: '#1a1a2e', padding: '15px', borderRadius: '8px', whiteSpace: 'pre-wrap', fontSize: '13px', maxHeight: '300px', overflow: 'auto' }}>
                 {proposal.proposal_text}
               </pre>
+              
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px', flexWrap: 'wrap' }}>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(proposal.proposal_text || ''); }}
+                  style={{ background: '#3b82f6', border: 'none', color: '#fff', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                >
+                  📋 Copy
+                </button>
+                
+                {proposal.status === 'generated' && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onStatusChange(proposal.id, 'submitted'); }}
+                    style={{ background: '#f59e0b', border: 'none', color: '#fff', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                  >
+                    📤 Mark Submitted
+                  </button>
+                )}
+                
+                {proposal.status === 'submitted' && (
+                  <>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); onStatusChange(proposal.id, 'accepted'); }}
+                      style={{ background: '#22c55e', border: 'none', color: '#fff', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                    >
+                      ✅ Accepted
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); onStatusChange(proposal.id, 'rejected'); }}
+                      style={{ background: '#ef4444', border: 'none', color: '#fff', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                    >
+                      ❌ Rejected
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           ) : (
             <button 
