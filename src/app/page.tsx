@@ -32,6 +32,7 @@ export default function Home() {
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchKey, setSearchKey] = useState(0); // Used to trigger refreshes
   const [sortBy, setSortBy] = useState<'date' | 'payout-high' | 'payout-low' | 'alpha'>('date');
   const [loading, setLoading] = useState(true);
   const [loadingSkills, setLoadingSkills] = useState(true);
@@ -69,9 +70,10 @@ export default function Home() {
     setError(null);
     setPage(1);
     
-    const url = new URL(`${API_BASE}/opportunities`);
+    const url = new URL(`${API_BASE}/opportunities/search`);
     url.searchParams.set('limit', '1000');
     if (selectedSkills.length > 0) url.searchParams.set('skills', selectedSkills.join(','));
+    if (searchQuery.trim()) url.searchParams.set('q', searchQuery.trim());
 
     fetch(url.toString(), { headers: { 'x-api-key': DEMO_KEY } })
       .then(res => { if (!res.ok) throw new Error(`API error: ${res.status}`); return res.json(); })
@@ -81,7 +83,7 @@ export default function Home() {
         setLoading(false);
       })
       .catch(err => { setError('Failed to load jobs. Click to retry.'); setLoading(false); });
-  }, [selectedSkills]);
+  }, [selectedSkills, searchKey]);
 
   // Filter and sort jobs
   const filteredJobs = useMemo(() => {
@@ -164,9 +166,7 @@ export default function Home() {
   };
 
   const handleSearch = () => {
-    setSearching(true);
-    setPage(1);
-    setTimeout(() => setSearching(false), 300);
+    setSearchKey(prev => prev + 1);
   };
 
   const clearFilters = () => {
